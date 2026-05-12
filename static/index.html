@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Гласов разговор</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(255, 255, 255, 0.8), transparent 30%),
+        radial-gradient(circle at bottom right, rgba(255, 255, 255, 0.65), transparent 28%),
+        linear-gradient(135deg, #ffe7f2 0%, #e6f7ff 55%, #f7ffe6 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      overflow: hidden;
+      color: #2f3b52;
+    }
+
+    body::before,
+    body::after {
+      content: "";
+      position: absolute;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.28);
+      pointer-events: none;
+      filter: blur(2px);
+      z-index: 0;
+    }
+
+    body::before {
+      width: 180px;
+      height: 180px;
+      top: 8%;
+      left: 8%;
+    }
+
+    body::after {
+      width: 120px;
+      height: 120px;
+      bottom: 10%;
+      right: 12%;
+    }
+
+    .bubble {
+      position: absolute;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.22);
+      pointer-events: none;
+      animation: float 12s ease-in-out infinite;
+      z-index: 0;
+    }
+
+    .bubble.one { width: 90px; height: 90px; left: 14%; top: 20%; }
+    .bubble.two { width: 70px; height: 70px; right: 18%; top: 16%; animation-duration: 14s; }
+    .bubble.three { width: 140px; height: 140px; left: 10%; bottom: 12%; animation-duration: 16s; }
+    .bubble.four { width: 100px; height: 100px; right: 10%; bottom: 16%; animation-duration: 13s; }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0) translateX(0); }
+      50% { transform: translateY(-18px) translateX(10px); }
+    }
+
+    #avatarContainer {
+      display: none;
+      position: relative;
+      z-index: 1;
+      width: min(92vw, 960px);
+      height: min(86vh, 540px);
+      border-radius: 28px;
+      overflow: hidden;
+      box-shadow: 0 18px 48px rgba(0, 0, 0, 0.15);
+      background: rgba(26, 26, 46, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.45);
+      backdrop-filter: blur(6px);
+    }
+
+    #avatarContainer video,
+    #avatarContainer audio {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .controls button {
+      border: none;
+      border-radius: 999px;
+      padding: 14px 26px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 10px 24px rgba(0,0,0,0.15);
+    }
+
+    #startBtn {
+      background: linear-gradient(135deg, #4f8cff, #6aa9ff);
+      color: white;
+    }
+
+    #stopBtn {
+      background: linear-gradient(135deg, #ff6b6b, #ff8a8a);
+      color: white;
+    }
+
+    #stopBtn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    .controls button:hover:not(:disabled) {
+      transform: translateY(-2px);
+    }
+  </style>
+</head>
+<body>
+  <div class="bubble one"></div>
+  <div class="bubble two"></div>
+  <div class="bubble three"></div>
+  <div class="bubble four"></div>
+
+  <div id="avatarContainer">
+    <!-- Video/audio elements are created dynamically by WebRTC ontrack -->
+  </div>
+
+  <div class="controls" style="position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); z-index: 2; display: flex; gap: 14px;">
+    <input id="phoneInput" type="tel" value="" style="display:none;" />
+    <input type="checkbox" id="avatarToggle" checked style="display:none;" />
+
+    <button id="startBtn" onclick="startStreaming()">▶ Старт</button>
+    <button id="stopBtn" onclick="stopStreaming()" disabled>■ Стоп</button>
+  </div>
+
+  <script>
+    let mediaStream, source, processor, socket;
+    let audioContext = new AudioContext({ sampleRate: 24000 });
+    let workletNode;
+
+    // ── Avatar / WebRTC state ──────────────────────────────────────
+    let peerConnection = null;
+    let avatarActive = false;
+
+    // Load the AudioWorkletProcessor
+    async function loadAudioProcessor() {
+      await audioContext.audioWorklet.addModule('/static/audio-processor.js');
+      workletNode = new AudioWorkletNode(audioContext, 'audio-processor');
+      workletNode.connect(audioContext.destination);
+    }
+
+    async function playAudio(arrayBuffer) {
+      if (audioContext.state === 'suspended') await audioContext.resume();
+      const int16 = new Int16Array(arrayBuffer);
+      const float32 = new Float32Array(int16.length);
+      for (let i = 0; i < int16.length; i++) {
+        float32[i] = int16[i] / (int16[i] < 0 ? 0x8000 : 0x7FFF);
+      }
+      workletNode.port.postMessage({ pcm: float32 });
+    }
+
+    function stopPlayback() {
+      if (workletNode) workletNode.port.postMessage({ clear: true });
+    }
+
+    // ── Avatar WebRTC helpers ──────────────────────────────────────
+    async function setupAvatarWebRTC(avatarConfig) {
+      console.log('Setting up WebRTC avatar, protocol:', avatarConfig.output_protocol);
+      const iceServers = (avatarConfig.ice_servers || []).map(s => ({
+        urls: s.urls,
+        username: s.username || undefined,
+        credential: s.credential || undefined,
+      }));
+      console.log('ICE servers:', iceServers.length);
+
+      peerConnection = new RTCPeerConnection({ iceServers });
+
+      // When Voice Live sends video/audio tracks via WebRTC
+      peerConnection.ontrack = (event) => {
+        console.log('WebRTC track received:', event.track.kind);
+        const container = document.getElementById('avatarContainer');
+        const mediaPlayer = document.createElement(event.track.kind);
+        mediaPlayer.id = 'avatar-' + event.track.kind;
+        mediaPlayer.srcObject = event.streams[0];
+        mediaPlayer.autoplay = true;
+        mediaPlayer.playsInline = true;
+        mediaPlayer.addEventListener('loadeddata', () => {
+          mediaPlayer.play().catch(e => console.warn('Avatar play error:', e));
+        });
+        if (event.track.kind === 'video') {
+          mediaPlayer.style.width = '100%';
+          mediaPlayer.style.height = '100%';
+          mediaPlayer.style.objectFit = 'cover';
+        }
+        container.appendChild(mediaPlayer);
+      };
+
+      peerConnection.oniceconnectionstatechange = () => {
+        console.log('ICE connection state:', peerConnection.iceConnectionState);
+      };
+
+      peerConnection.onconnectionstatechange = () => {
+        console.log('Peer connection state:', peerConnection.connectionState);
+      };
+
+      // Listen for data channel events (Voice Live may send events via data channel)
+      peerConnection.addEventListener('datachannel', (event) => {
+        const dataChannel = event.channel;
+        dataChannel.onmessage = (e) => {
+          console.log('WebRTC data channel event:', e.data);
+        };
+        dataChannel.onclose = () => {
+          console.log('Data channel closed');
+        };
+      });
+      peerConnection.createDataChannel('eventChannel');
+
+      // Add sendrecv transceivers (matching the sample — NOT recvonly)
+      peerConnection.addTransceiver('video', { direction: 'sendrecv' });
+      peerConnection.addTransceiver('audio', { direction: 'sendrecv' });
+
+      // Create offer and wait for ICE gathering to complete so all
+      // TURN candidates are embedded in the SDP before sending
+      const offer = await peerConnection.createOffer();
+      await peerConnection.setLocalDescription(offer);
+      console.log('Waiting for ICE gathering to complete…');
+
+      let iceGatheringDone = false;
+      await new Promise(resolve => {
+        peerConnection.onicecandidate = (event) => {
+          if (!event.candidate && !iceGatheringDone) {
+            iceGatheringDone = true;
+            resolve();
+          }
+        };
+        // Safety timeout
+        setTimeout(() => {
+          if (!iceGatheringDone) {
+            iceGatheringDone = true;
+            resolve();
+          }
+        }, 10000);
+      });
+
+      // Send base64-encoded JSON of localDescription (matching sample protocol)
+      const sdpJson = JSON.stringify(peerConnection.localDescription);
+      const sdpBase64 = btoa(sdpJson);
+      console.log('Sending SDP offer to Voice Live (base64, len=' + sdpBase64.length + ')');
+      socket.send(JSON.stringify({
+        Kind: 'AvatarSDP',
+        ClientSdp: sdpBase64,
+      }));
+    }
+
+    async function handleAvatarSDPAnswer(serverSdpBase64) {
+      // Server SDP is base64-encoded JSON: {"type":"answer","sdp":"..."}
+      if (!peerConnection || !serverSdpBase64) return;
+      try {
+        const serverSdpJson = atob(serverSdpBase64);
+        const serverSdpObj = JSON.parse(serverSdpJson);
+        console.log('Setting remote SDP:', serverSdpObj.type);
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(serverSdpObj));
+        console.log('WebRTC remote description set successfully');
+      } catch (e) {
+        console.error('Failed to set remote SDP:', e);
+      }
+    }
+
+    function resetAvatar() {
+      if (peerConnection) {
+        peerConnection.close();
+        peerConnection = null;
+      }
+      const container = document.getElementById('avatarContainer');
+      container.innerHTML = '';
+      container.style.display = 'none';
+      avatarActive = false;
+    }
+
+    function float32ToInt16(float32Array) {
+      const int16 = new Int16Array(float32Array.length);
+      for (let i = 0; i < float32Array.length; i++) {
+        const s = Math.max(-1, Math.min(1, float32Array[i]));
+        int16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+      }
+      return int16;
+    }
+
+    async function startMicrophone() {
+      mediaStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
+      });
+      source = audioContext.createMediaStreamSource(mediaStream);
+      processor = audioContext.createScriptProcessor(4096, 1, 1);
+
+      processor.onaudioprocess = (event) => {
+        const input = event.inputBuffer.getChannelData(0);
+        const pcm = float32ToInt16(input);
+        if (socket?.readyState === WebSocket.OPEN) {
+          socket.send(pcm.buffer);
+        }
+      };
+
+      // ONLY route mic input into the processor
+      source.connect(processor);
+      processor.connect(audioContext.destination); // destination is silent when context's output not used
+    }
+
+    function stopMicrophone() {
+      if (processor && typeof processor.disconnect === "function") {
+        processor.disconnect();
+        processor = null;
+      }
+      if (mediaStream && mediaStream.getTracks) {
+        mediaStream.getTracks().forEach(t => t.stop());
+        mediaStream = null;
+      }
+    }
+
+    function stopStreaming() {
+      socket.close();
+    }
+
+    function startStreaming() {
+      let wsProtocol = window.location.protocol === "https:" ? "wss" : "ws";
+      let wsHost = window.location.host;
+      let phone = document.getElementById("phoneInput").value.trim();
+      let useAvatar = true;
+      let params = new URLSearchParams();
+      if (phone) params.set('callerId', phone);
+      if (useAvatar) params.set('avatar', '1');
+      let qs = params.toString();
+      let wsUrl = `${wsProtocol}://${wsHost}/web/ws${qs ? '?' + qs : ''}`;
+      socket = new WebSocket(wsUrl);
+      socket.binaryType = "arraybuffer";
+
+      // Set up avatar if enabled
+      if (useAvatar) {
+        avatarActive = true;
+        document.getElementById('avatarContainer').style.display = 'block';
+      }
+
+      socket.onopen = async () => {
+        console.log("WebSocket opened");
+        await audioContext.resume();
+        await startMicrophone();
+        document.getElementById("startBtn").disabled = true;
+        document.getElementById("stopBtn").disabled = false;
+      };
+
+      socket.onmessage = async (event) => {
+        if (typeof event.data === "string") {
+          const msg = JSON.parse(event.data);
+          if (msg.Kind === "StopAudio") {
+            console.log("Audio stopped")
+            stopPlayback();
+          }
+          if (msg.Kind === "Transcription") {
+            console.log("Transcript:", msg.Text);
+          }
+          if (msg.Kind === "AvatarConfig") {
+            console.log('Avatar config received, showing container');
+            document.getElementById('avatarContainer').style.display = 'block';
+            setupAvatarWebRTC(msg.Avatar);
+          }
+          if (msg.Kind === "AvatarSDPAnswer") {
+            handleAvatarSDPAnswer(msg.ServerSdp);
+          }
+         }
+        else if (event.data instanceof ArrayBuffer) {
+            try {
+              playAudio(event.data);
+            } catch (e) {
+              console.error("Failed to decode audio:", e);
+            }
+        }
+        else
+        {
+          console.log("unknown message", event.data);
+        }
+      }
+
+      socket.onclose = () => {
+        console.log("WebSocket closed");
+        stopMicrophone();
+        if (avatarActive) resetAvatar();
+        document.getElementById("startBtn").disabled = false;
+        document.getElementById("stopBtn").disabled = true;
+      };
+
+      socket.onerror = (err) => console.error("WebSocket error", err);
+    }
+
+    // Initialize the audio processor
+    window.addEventListener('load', async () => {
+      try {
+        await loadAudioProcessor();
+      } catch (e) {
+        console.error('Initialization failed:', e);
+      }
+    });
+  </script>
+</body>
+</html>

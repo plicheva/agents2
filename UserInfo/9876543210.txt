@@ -1,0 +1,80 @@
+Name: Kavya Sharma
+Phone (last 4): 3210
+Customer Since: August 2021
+Loyalty Tier: Gold
+
+═══════════════════════════════════════════
+CREDIT CARDS
+═══════════════════════════════════════════
+
+1. Guptaji ShopSmart Cashback Card
+   Card Number (last 4): 7832
+   Credit Limit: ₹3,00,000
+   Available Limit: ₹2,10,000
+   Outstanding Balance: ₹90,000
+   Minimum Due: ₹4,500
+   Due Date: 15th of every month
+   Last Payment: ₹10,000 on 10-Mar-2026
+   Cashback Earned (FY 2025-26): ₹6,150
+   Auto-Pay: Not Enabled
+   Annual Fee: ₹500 (charged 01-Aug-2025)
+   Card Status: Active
+
+2. Guptaji EasyBuy EMI Card
+   Card Number (last 4): 3301
+   Credit Limit: ₹1,50,000
+   Available Limit: ₹78,000
+   Outstanding Balance: ₹72,000
+   Minimum Due: ₹12,000 (EMI)
+   Due Date: 15th of every month
+   Last Payment: ₹12,000 on 14-Mar-2026
+   Active EMIs: 2 (Samsung TV ₹48,000 remaining 4/12 months, Laptop ₹24,000 remaining 2/6 months)
+   Auto-Pay: Enabled (EMI amount only)
+   Annual Fee: Nil (lifetime free)
+   Card Status: Active
+
+3. Guptaji Voyage Travel Card
+   Card Number (last 4): 5590
+   Credit Limit: ₹4,00,000
+   Available Limit: ₹3,85,400
+   Outstanding Balance: ₹14,600
+   Minimum Due: ₹730
+   Due Date: 15th of every month
+   Last Payment: Full payment ₹22,000 on 13-Mar-2026
+   Air Miles Earned: 5,200
+   Lounge Access: 4 domestic, 2 international/year (1 used)
+   Auto-Pay: Not Enabled
+   Annual Fee: ₹5,000 (charged 01-Sep-2025, not waivable)
+   Card Status: Active
+
+═══════════════════════════════════════════
+FEES & CHARGES SUMMARY (FY 2025-26)
+═══════════════════════════════════════════
+Annual Fee – ShopSmart Cashback: ₹500 (paid)
+Annual Fee – EasyBuy EMI: ₹0 (lifetime free)
+Annual Fee – Voyage Travel: ₹5,000 (paid)
+Late Payment Fee: ₹500 (charged 18-Dec-2025 on ShopSmart card)
+Late Payment Fee: ₹500 (charged 17-Oct-2025 on ShopSmart card)
+Finance Charges (interest): ₹2,867 (Dec-2025, ShopSmart card)
+Forex Markup: 1.75% on international transactions
+GST on Fees: 18% on all charges
+Note: 2 late payments in last 6 months on ShopSmart card — customer may ask for waiver
+
+═══════════════════════════════════════════
+RECENT TRANSACTIONS
+═══════════════════════════════════════════
+
+ShopSmart Cashback (7832):
+ 1. 21-Mar-2026 | Myntra Fashion       | ₹5,670  | Cashback ₹284
+ 2. 14-Mar-2026 | Zomato               | ₹1,245  | Cashback ₹62
+ 3. 10-Mar-2026 | BSNL Broadband       | ₹1,499  | Auto-pay bill
+
+EasyBuy EMI (3301):
+ 1. 17-Mar-2026 | Samsung TV EMI 8/12  | ₹4,000  | EMI auto-debit
+ 2. 17-Mar-2026 | Laptop EMI 4/6       | ₹4,000  | EMI auto-debit
+ 3. 17-Feb-2026 | Samsung TV EMI 7/12  | ₹4,000  | EMI auto-debit
+
+Voyage Travel (5590):
+ 1. 19-Mar-2026 | The Westin Dinner    | ₹3,200  | 320 Air Miles
+ 2. 12-Mar-2026 | Cleartrip Hotel      | ₹8,750  | 875 Air Miles
+ 3. 08-Mar-2026 | Ola Cabs             | ₹980    | 98 Air Miles
