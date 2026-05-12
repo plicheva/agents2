@@ -358,7 +358,72 @@
       audioContext.resume().catch(err => console.warn('AudioContext resume failed:', err));
 
       socket = new WebSocket(wsUrl);
-      socket.binaryTy
+      socket.binaryType = "arraybuffer";
+
+      // Set up avatar if enabled
+      if (useAvatar) {
+        avatarActive = true;
+      }
+
+      socket.onopen = async () => {
+        console.log("WebSocket opened");
+        try {
+          await audioContext.resume();
+          await startMicrophone();
+          startBtn.disabled = true;
+          stopBtn.disabled = false;
+        } catch (err) {
+          console.error('Failed to start microphone:', err);
+          try {
+            socket.close();
+          } catch (_) {}
+        }
+      };
+
+      socket.onmessage = async (event) => {
+        if (typeof event.data === "string") {
+          const msg = JSON.parse(event.data);
+          if (msg.Kind === "StopAudio") {
+            console.log("Audio stopped")
+            stopPlayback();
+          }
+          if (msg.Kind === "Transcription") {
+            console.log("Transcript:", msg.Text);
+          }
+          if (msg.Kind === "AvatarConfig") {
+            console.log('Avatar config received, showing container');
+            document.getElementById('avatarContainer').style.display = 'block';
+            setupAvatarWebRTC(msg.Avatar);
+          }
+          if (msg.Kind === "AvatarSDPAnswer") {
+            handleAvatarSDPAnswer(msg.ServerSdp);
+          }
+         }
+        else if (event.data instanceof ArrayBuffer) {
+            try {
+              playAudio(event.data);
+            } catch (e) {
+              console.error("Failed to decode audio:", e);
+            }
+        }
+        else
+        {
+          console.log("unknown message", event.data);
+        }
+      }
+
+      socket.onclose = () => {
+        console.log("WebSocket closed");
+        stopMicrophone();
+        if (avatarActive) resetAvatar();
+        startBtn.disabled = false;
+        stopBtn.disabled = true;
+      };
+
+      socket.onerror = (err) => {
+        console.error("WebSocket error", err);
+      };
+    }
 
     // Initialize the audio processor
     window.addEventListener('load', async () => {
