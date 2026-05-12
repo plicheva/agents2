@@ -133,7 +133,8 @@
     <input id="phoneInput" type="tel" value="" style="display:none;" />
     <input type="checkbox" id="avatarToggle" checked style="display:none;" />
 
-    
+    <button id="startBtn" onclick="startStreaming()">▶ Старт</button>
+    <button id="stopBtn" onclick="stopStreaming()" disabled>■ Стоп</button>
   </div>
 
   <script>
@@ -325,75 +326,48 @@
     }
 
     function stopStreaming() {
-      socket.close();
-    }
-
-    function startStreaming() {
-      let wsProtocol = window.location.protocol === "function stopStreaming() {
       if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
         socket.close();
       }
-    }= docufunction startStreaming() {
+    }
+
+    function startStreaming() {
       if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
         return;
-      }nput").value.trim();
+      }
+
+      const startBtn = document.getElementById("startBtn");
+      const stopBtn = document.getElementById("stopBtn");
+      const avatarContainer = document.getElementById('avatarContainer');
+
+      let wsProtocol = window.location.protocol === "https:" ? "wss" : "ws";
+      let wsHost = window.location.host;
+      let phone = document.getElementById("phoneInput").value.trim();
       let useAvatar = true;
       let params = new URLSearchParams();
       if (phone) params.set('callerId', phone);
       if (useAvatar) params.set('avatar', '1');
       let qs = params.toString();
       let wsUrl = `${wsProtocol}://${wsHost}/web/ws${qs ? '?' + qs : ''}`;
+
+      startBtn.disabled = true;
+      stopBtn.disabled = true;
+      avatarContainer.style.display = useAvatar ? 'block' : 'none';
+
+      // Resume audio as soon as the user clicks Start so browser autoplay rules do not block audio.
+      audioContext.resume().catch(err => console.warn('AudioContext resume failed:', err));
+
       socket = new WebSocket(wsUrl);
-      socket.binaryType = "arraybuffer";
+      socket.binaryTy
 
-      // Set up avatar if enabled
-      if (useAvatar) {
-        avatarActive = true;
-        ddocument.getElementById("startBtn").disabled = true;
-      socket = new WebSocket(wsUrl);Container').style.display = 'block';
+    // Initialize the audio processor
+    window.addEventListener('load', async () => {
+      try {
+        await loadAudioProcessor();
+      } catch (e) {
+        console.error('Initialization failed:', e);
       }
-
-      socket.onopen = async () =>ket opened");
-        await audioContext.resume();
-        await startMicrophone();
-        document.getElementById("startBtn").disabled = trsocket.onopen = async () => {
-        console.log("WebSocket opened");
-        await audioContext.resume();
-        await startMicrophone();
-        document.getElementById("startBtn").disabled = true;
-        document.getElementById("stopBtn").disabled = false;
-      };g container');
-            document.getElementById('avatarContainer').style.display = 'block';
-            setupAvatarWebRTC(msg.Avatar);
-          }
-          if (msg.Kind === "AvatarSDPAnswer") {
-            handleAvatarSDPAnswer(msg.ServerSdp);
-          }
-         }
-        else if (event.data instanceof ArrayBuffer) {
-            try {
-              playAudio(event.data);
-            } catch (e) {
-              console.error("Failed to decode audio:", e);
-            }
-        }
-        else
-        {
-          console.log("unknown message", event.data);
-        }
-      }
-
-      socket.onclose = () => {
-        console.log("WebSocket closed");
-        stopMicrophone();
-        if (avatarActive) resetAvatar();
-        document.getElementById("startBtn").disabled = false;
-        document.getElementById("stopBtn").disabled = true;
-      };
-
-      socket.onerror = (err) => console.error("WebSocket error", err);
-    }
-
-    // Initialize the asocket.onerror = (err) => {
-        console.error("WebSocket error", err);
-      };
+    });
+  </script>
+</body>
+</html>
