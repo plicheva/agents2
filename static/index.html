@@ -188,6 +188,9 @@
         mediaPlayer.srcObject = event.streams[0];
         mediaPlayer.autoplay = true;
         mediaPlayer.playsInline = true;
+        if (event.track.kind === 'video') {
+          mediaPlayer.muted = true;
+        }
         mediaPlayer.addEventListener('loadeddata', () => {
           mediaPlayer.play().catch(e => console.warn('Avatar play error:', e));
         });
@@ -343,6 +346,10 @@
       let wsProtocol = window.location.protocol === "https:" ? "wss" : "ws";
       let wsHost = window.location.host;
       let phone = document.getElementById("phoneInput").value.trim();
+      if (!phone) {
+        phone = 'session-' + Math.random().toString(36).slice(2, 10);
+        document.getElementById("phoneInput").value = phone;
+      }
       let useAvatar = true;
       let params = new URLSearchParams();
       if (phone) params.set('callerId', phone);
@@ -392,7 +399,9 @@
           }
           if (msg.Kind === "AvatarConfig") {
             console.log('Avatar config received, showing container');
-            document.getElementById('avatarContainer').style.display = 'block';
+            const container = document.getElementById('avatarContainer');
+            container.innerHTML = '';
+            container.style.display = 'block';
             setupAvatarWebRTC(msg.Avatar);
           }
           if (msg.Kind === "AvatarSDPAnswer") {
