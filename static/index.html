@@ -133,8 +133,7 @@
     <input id="phoneInput" type="tel" value="" style="display:none;" />
     <input type="checkbox" id="avatarToggle" checked style="display:none;" />
 
-    <button id="startBtn" onclick="startStreaming()">▶ Старт</button>
-    <button id="stopBtn" onclick="stopStreaming()" disabled>■ Стоп</button>
+    
   </div>
 
   <script>
@@ -330,9 +329,14 @@
     }
 
     function startStreaming() {
-      let wsProtocol = window.location.protocol === "https:" ? "wss" : "ws";
-      let wsHost = window.location.host;
-      let phone = document.getElementById("phoneInput").value.trim();
+      let wsProtocol = window.location.protocol === "function stopStreaming() {
+      if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
+        socket.close();
+      }
+    }= docufunction startStreaming() {
+      if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
+        return;
+      }nput").value.trim();
       let useAvatar = true;
       let params = new URLSearchParams();
       if (phone) params.set('callerId', phone);
@@ -345,29 +349,20 @@
       // Set up avatar if enabled
       if (useAvatar) {
         avatarActive = true;
-        document.getElementById('avatarContainer').style.display = 'block';
+        ddocument.getElementById("startBtn").disabled = true;
+      socket = new WebSocket(wsUrl);Container').style.display = 'block';
       }
 
-      socket.onopen = async () => {
+      socket.onopen = async () =>ket opened");
+        await audioContext.resume();
+        await startMicrophone();
+        document.getElementById("startBtn").disabled = trsocket.onopen = async () => {
         console.log("WebSocket opened");
         await audioContext.resume();
         await startMicrophone();
         document.getElementById("startBtn").disabled = true;
         document.getElementById("stopBtn").disabled = false;
-      };
-
-      socket.onmessage = async (event) => {
-        if (typeof event.data === "string") {
-          const msg = JSON.parse(event.data);
-          if (msg.Kind === "StopAudio") {
-            console.log("Audio stopped")
-            stopPlayback();
-          }
-          if (msg.Kind === "Transcription") {
-            console.log("Transcript:", msg.Text);
-          }
-          if (msg.Kind === "AvatarConfig") {
-            console.log('Avatar config received, showing container');
+      };g container');
             document.getElementById('avatarContainer').style.display = 'block';
             setupAvatarWebRTC(msg.Avatar);
           }
@@ -399,14 +394,6 @@
       socket.onerror = (err) => console.error("WebSocket error", err);
     }
 
-    // Initialize the audio processor
-    window.addEventListener('load', async () => {
-      try {
-        await loadAudioProcessor();
-      } catch (e) {
-        console.error('Initialization failed:', e);
-      }
-    });
-  </script>
-</body>
-</html>
+    // Initialize the asocket.onerror = (err) => {
+        console.error("WebSocket error", err);
+      };
