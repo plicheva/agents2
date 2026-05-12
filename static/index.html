@@ -87,35 +87,41 @@
       display: block;
     }
 
+    .controls {
+      position: absolute;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 2;
+      display: flex;
+      justify-content: center;
+    }
+
     .controls button {
       border: none;
       border-radius: 999px;
-      padding: 14px 26px;
+      padding: 14px 28px;
       font-size: 1rem;
       font-weight: 700;
       cursor: pointer;
-      transition: all 0.2s ease;
-      box-shadow: 0 10px 24px rgba(0,0,0,0.15);
-    }
-
-    #startBtn {
+      transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.15);
       background: linear-gradient(135deg, #4f8cff, #6aa9ff);
       color: white;
     }
 
-    #stopBtn {
-      background: linear-gradient(135deg, #ff6b6b, #ff8a8a);
-      color: white;
+    .controls button:hover:not(:disabled) {
+      transform: translateY(-2px);
     }
 
-    #stopBtn:disabled {
-      opacity: 0.6;
+    .controls button:disabled {
+      opacity: 0.65;
       cursor: not-allowed;
       box-shadow: none;
     }
 
-    .controls button:hover:not(:disabled) {
-      transform: translateY(-2px);
+    .hidden-controls {
+      display: none;
     }
   </style>
 </head>
@@ -129,12 +135,13 @@
     <!-- Video/audio elements are created dynamically by WebRTC ontrack -->
   </div>
 
-  <div class="controls" style="position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); z-index: 2; display: flex; gap: 14px;">
-    <input id="phoneInput" type="tel" value="" style="display:none;" />
-    <input type="checkbox" id="avatarToggle" checked style="display:none;" />
+  <div class="controls">
+    <button id="pauseBtn" onclick="togglePause()">Пауза</button>
+  </div>
 
-    <button id="startBtn" onclick="startStreaming()">▶ Старт</button>
-    <button id="stopBtn" onclick="stopStreaming()" disabled>■ Стоп</button>
+  <div class="hidden-controls" aria-hidden="true">
+    <input id="phoneInput" type="tel" value="" />
+    <input type="checkbox" id="avatarToggle" checked />
   </div>
 
   <script>
@@ -145,6 +152,8 @@
     // ── Avatar / WebRTC state ──────────────────────────────────────
     let peerConnection = null;
     let avatarActive = false;
+    let conversationPaused = false;
+    let pauseRequested = false;
 
     // Load the AudioWorkletProcessor
     async function loadAudioProcessor() {
@@ -314,11 +323,11 @@
 
       // ONLY route mic input into the processor
       source.connect(processor);
-      processor.connect(audioContext.destination); // destination is silent when context's output not used
+      processor.connect(audioContext.destination);
     }
 
     function stopMicrophone() {
-      if (processor && typeof processor.disconnect === "function") {
+      if (processor && typeof processor.disconnect === 'function') {
         processor.disconnect();
         processor = null;
       }
@@ -339,16 +348,14 @@
         return;
       }
 
-      const startBtn = document.getElementById("startBtn");
-      const stopBtn = document.getElementById("stopBtn");
+      const pauseBtn = document.getElementById('pauseBtn');
       const avatarContainer = document.getElementById('avatarContainer');
-
-      let wsProtocol = window.location.protocol === "https:" ? "wss" : "ws";
+      let wsProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
       let wsHost = window.location.host;
-      let phone = document.getElementById("phoneInput").value.trim();
+      let phone = document.getElementById('phoneInput').value.trim();
       if (!phone) {
         phone = 'session-' + Math.random().toString(36).slice(2, 10);
-        document.getElementById("phoneInput").value = phone;
+        document.getElementById('phoneInput').value = phone;
       }
       let useAvatar = true;
       let params = new URLSearchParams();
@@ -357,28 +364,27 @@
       let qs = params.toString();
       let wsUrl = `${wsProtocol}://${wsHost}/web/ws${qs ? '?' + qs : ''}`;
 
-      startBtn.disabled = true;
-      stopBtn.disabled = true;
+      pauseBtn.disabled = true;
       avatarContainer.style.display = useAvatar ? 'block' : 'none';
 
-      // Resume audio as soon as the user clicks Start so browser autoplay rules do not block audio.
       audioContext.resume().catch(err => console.warn('AudioContext resume failed:', err));
 
       socket = new WebSocket(wsUrl);
-      socket.binaryType = "arraybuffer";
+      socket.binaryType = 'arraybuffer';
 
-      // Set up avatar if enabled
       if (useAvatar) {
         avatarActive = true;
       }
 
       socket.onopen = async () => {
-        console.log("WebSocket opened");
+        console.log('WebSocket opened');
         try {
           await audioContext.resume();
           await startMicrophone();
-          startBtn.disabled = true;
-          stopBtn.disabled = false;
+          conversationPaused = false;
+          pauseRequested = false;
+          pauseBtn.disabled = false;
+          pauseBtn.textContent = 'Пауза';
         } catch (err) {
           console.error('Failed to start microphone:', err);
           try {
@@ -388,56 +394,74 @@
       };
 
       socket.onmessage = async (event) => {
-        if (typeof event.data === "string") {
+        if (typeof event.data === 'string') {
           const msg = JSON.parse(event.data);
-          if (msg.Kind === "StopAudio") {
-            console.log("Audio stopped")
+          if (msg.Kind === 'StopAudio') {
+            console.log('Audio stopped');
             stopPlayback();
           }
-          if (msg.Kind === "Transcription") {
-            console.log("Transcript:", msg.Text);
+          if (msg.Kind === 'Transcription') {
+            console.log('Transcript:', msg.Text);
           }
-          if (msg.Kind === "AvatarConfig") {
+          if (msg.Kind === 'AvatarConfig') {
             console.log('Avatar config received, showing container');
             const container = document.getElementById('avatarContainer');
             container.innerHTML = '';
             container.style.display = 'block';
             setupAvatarWebRTC(msg.Avatar);
           }
-          if (msg.Kind === "AvatarSDPAnswer") {
+          if (msg.Kind === 'AvatarSDPAnswer') {
             handleAvatarSDPAnswer(msg.ServerSdp);
           }
-         }
-        else if (event.data instanceof ArrayBuffer) {
-            try {
-              playAudio(event.data);
-            } catch (e) {
-              console.error("Failed to decode audio:", e);
-            }
+        } else if (event.data instanceof ArrayBuffer) {
+          try {
+            playAudio(event.data);
+          } catch (e) {
+            console.error('Failed to decode audio:', e);
+          }
+        } else {
+          console.log('unknown message', event.data);
         }
-        else
-        {
-          console.log("unknown message", event.data);
-        }
-      }
+      };
 
       socket.onclose = () => {
-        console.log("WebSocket closed");
+        console.log('WebSocket closed');
         stopMicrophone();
         if (avatarActive) resetAvatar();
-        startBtn.disabled = false;
-        stopBtn.disabled = true;
+        if (pauseRequested) {
+          conversationPaused = true;
+          pauseRequested = false;
+          pauseBtn.disabled = false;
+          pauseBtn.textContent = 'Продължи';
+        } else {
+          conversationPaused = false;
+          pauseBtn.disabled = false;
+          pauseBtn.textContent = 'Пауза';
+        }
       };
 
       socket.onerror = (err) => {
-        console.error("WebSocket error", err);
+        console.error('WebSocket error', err);
       };
     }
 
-    // Initialize the audio processor
+    function togglePause() {
+      const pauseBtn = document.getElementById('pauseBtn');
+      if (conversationPaused) {
+        startStreaming();
+        return;
+      }
+      pauseRequested = true;
+      pauseBtn.disabled = true;
+      stopStreaming();
+      pauseBtn.textContent = 'Продължи';
+    }
+
+    // Initialize the audio processor, then start automatically
     window.addEventListener('load', async () => {
       try {
         await loadAudioProcessor();
+        startStreaming();
       } catch (e) {
         console.error('Initialization failed:', e);
       }
